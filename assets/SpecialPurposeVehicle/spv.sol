@@ -60,12 +60,15 @@ contract SPV is owned {
     uint8 public decimals;
     uint256 public totalSupply;
     address public oracle;
+    uint256 public min_muxamount;
+    
     Stromkonto public stromkonto;
     
     address[] public shareholders;
     
     /* This creates a map with all balances */
     mapping (address => uint256) public balanceOf;
+    mapping (address => uint256) public bufferOf; //buffered Amount before demux
     mapping (address => mapping (address => uint256)) public allowance;
 
     /* This generates a public event on the blockchain that will notify clients */
@@ -106,6 +109,9 @@ contract SPV is owned {
         stromkonto=_stromkonto;
     }
     
+    function setBufferAmount(uint256 _value) onlyOwner {
+        min_muxamount=_value;
+    }
     /* Allow another contract to spend some tokens in your behalf */
     function approve(address _spender, uint256 _value)
         returns (bool success) {
@@ -136,7 +142,11 @@ contract SPV is owned {
             txMapping[shareholders[j]]=0;
             //=> Transfer the share_amount
             if(share_amount>0) {
-                stromkonto.addTx(this,shareholders[j],share_amount,'SPV');
+                bufferOf[shareholders[j]]+=share_amount;
+                if(bufferOf[shareholders[j]]>min_muxamount) {
+                    stromkonto.addTx(this,shareholders[j],share_amount,'SPV');
+                    bufferOf[shareholders[j]]=0;
+                }
             }
         }
     }
